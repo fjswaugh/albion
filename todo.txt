@@ -4,6 +4,23 @@ Add unit tests
 
 Resolver
 
+Consider errors:
+
+    Throw Runtime errors everywhere, and give the Albion a way to throw and catch them
+        vs.
+    Encode error information in nil, and let nil be used everywhere without throwing
+        vs.
+    Some combination, with certain operations throwing and others using nil
+
+    I'm inclined to stick to one option for simplicity, and I somewhat prefer the second. I will
+    need a syntax for assigning and accessing error information to/from nil.
+
+    Also need to consider what this should do:
+        undefined_variable.undefined_function;
+    This type of thing you probably want to fail, so maybe runtime errors should be kept and only
+    thrown by the interpreter, reserved for errors that involve undefined variables and other
+    critical program deficiencies.
+
 Comma at the end of tuples, not beginning
 
     var t = 1,;
