@@ -6,7 +6,7 @@
 namespace {
 
 struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<std::string> {
-    std::string operator()(const Ast::Assign& a) const override {
+    std::string operator()(const Ast::Assign& a) override {
         std::string s;
         s += "(assign ";
         s += a.variable->accept(*this);
@@ -14,7 +14,7 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Binary& b) const override {
+    std::string operator()(const Ast::Binary& b) override {
         std::string s;
         s += "(" + b.op.lexeme + " ";
         s += b.left->accept(*this);
@@ -22,7 +22,7 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Call& c) const override {
+    std::string operator()(const Ast::Call& c) override {
         std::string s;
         s += "(call ";
         s += c.callee->accept(*this);
@@ -32,7 +32,7 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Function& f) const override {
+    std::string operator()(const Ast::Function& f) override {
         std::string s;
         s += "(fun ";
         for (std::size_t i = 0; i < f.input.size(); ++i) {
@@ -42,14 +42,14 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Grouping& g) const override {
+    std::string operator()(const Ast::Grouping& g) override {
         std::string s;
         s += "(group ";
         s += g.expression->accept(*this);
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Literal& l) const override {
+    std::string operator()(const Ast::Literal& l) override {
         std::string s;
         const bool is_string = l.value.holds<std::string>();
         if (is_string) s += "\"";
@@ -58,7 +58,7 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += " ";
         return s;
     }
-    std::string operator()(const Ast::Logical& l) const override {
+    std::string operator()(const Ast::Logical& l) override {
         std::string s;
         s += "(" + l.op.lexeme + " ";
         s += l.left->accept(*this);
@@ -66,7 +66,7 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Tuple& t) const override {
+    std::string operator()(const Ast::Tuple& t) override {
         std::string s;
         s += "(tuple ";
         for (auto& expression : t.elements) {
@@ -75,19 +75,19 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Unary& u) const override {
+    std::string operator()(const Ast::Unary& u) override {
         std::string s;
         s += "(" + u.op.lexeme + " ";
         s += u.right->accept(*this);
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Variable& v) const override {
+    std::string operator()(const Ast::Variable& v) override {
         std::string s;
         s += v.name.lexeme + " ";
         return s;
     }
-    std::string operator()(const Ast::VariableTuple& vt) const override {
+    std::string operator()(const Ast::VariableTuple& vt) override {
         std::string s;
         const auto f = combine([&s, this](const Ast::Variable& v) {
                                    s += v.accept(*this);
@@ -103,7 +103,7 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         return s;
     }
 
-    std::string operator()(const Ast::Block& b) const override {
+    std::string operator()(const Ast::Block& b) override {
         std::string s;
         s += "(block ";
         for (auto& statement : b.statements) {
@@ -112,14 +112,14 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::ExpressionStatement& es) const override {
+    std::string operator()(const Ast::ExpressionStatement& es) override {
         std::string s;
         s += "(; ";
         if (es.expression) s += (*es.expression)->accept(*this);
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::If& i) const override {
+    std::string operator()(const Ast::If& i) override {
         std::string s;
         s += "(if ";
         s += i.condition->accept(*this);
@@ -128,7 +128,7 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Return& r) const override {
+    std::string operator()(const Ast::Return& r) override {
         std::string s;
         s += "(return ";
         if (r.expression) {
@@ -137,7 +137,7 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::While& w) const override {
+    std::string operator()(const Ast::While& w) override {
         std::string s;
         s += "(while ";
         s += w.condition->accept(*this);
@@ -145,7 +145,7 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
-    std::string operator()(const Ast::Declaration& d) const override {
+    std::string operator()(const Ast::Declaration& d) override {
         std::string s;
         s += "(var ";
         s += d.variable->accept(*this);

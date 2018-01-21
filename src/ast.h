@@ -36,50 +36,50 @@ struct VariableTuple;
 struct Statement {
     template <typename ReturnType>
     struct Visitor {
-        virtual ReturnType operator()(const Block&) const = 0;
-        virtual ReturnType operator()(const ExpressionStatement&) const = 0;
-        virtual ReturnType operator()(const If&) const = 0;
-        virtual ReturnType operator()(const Return&) const = 0;
-        virtual ReturnType operator()(const While&) const = 0;
-        virtual ReturnType operator()(const Declaration&) const = 0;
+        virtual ReturnType operator()(const Block&) = 0;
+        virtual ReturnType operator()(const ExpressionStatement&) = 0;
+        virtual ReturnType operator()(const If&) = 0;
+        virtual ReturnType operator()(const Return&) = 0;
+        virtual ReturnType operator()(const While&) = 0;
+        virtual ReturnType operator()(const Declaration&) = 0;
         virtual ~Visitor() noexcept {}
     };
 
-    virtual void accept(const Visitor<void>&) const = 0;
-    virtual std::string accept(const Visitor<std::string>&) const = 0;
+    virtual void accept(Visitor<void>&) const = 0;
+    virtual std::string accept(Visitor<std::string>&) const = 0;
     virtual ~Statement() noexcept {}
 };
 
 struct Expression {
     template <typename ReturnType>
     struct Visitor {
-        virtual ReturnType operator()(const Assign&) const = 0;
-        virtual ReturnType operator()(const Binary&) const = 0;
-        virtual ReturnType operator()(const Call&) const = 0;
-        virtual ReturnType operator()(const Function&) const = 0;
-        virtual ReturnType operator()(const Grouping&) const = 0;
-        virtual ReturnType operator()(const Literal&) const = 0;
-        virtual ReturnType operator()(const Logical&) const = 0;
-        virtual ReturnType operator()(const Tuple&) const = 0;
-        virtual ReturnType operator()(const Unary&) const = 0;
-        virtual ReturnType operator()(const Variable&) const = 0;
-        virtual ReturnType operator()(const VariableTuple&) const = 0;
+        virtual ReturnType operator()(const Assign&) = 0;
+        virtual ReturnType operator()(const Binary&) = 0;
+        virtual ReturnType operator()(const Call&) = 0;
+        virtual ReturnType operator()(const Function&) = 0;
+        virtual ReturnType operator()(const Grouping&) = 0;
+        virtual ReturnType operator()(const Literal&) = 0;
+        virtual ReturnType operator()(const Logical&) = 0;
+        virtual ReturnType operator()(const Tuple&) = 0;
+        virtual ReturnType operator()(const Unary&) = 0;
+        virtual ReturnType operator()(const Variable&) = 0;
+        virtual ReturnType operator()(const VariableTuple&) = 0;
         virtual ~Visitor() noexcept {}
     };
 
-    virtual void accept(const Visitor<void>&) const = 0;
-    virtual ObjectReference accept(const Visitor<ObjectReference>&) const = 0;
-    virtual std::string accept(const Visitor<std::string>&) const = 0;
+    virtual void accept(Visitor<void>&) const = 0;
+    virtual ObjectReference accept(Visitor<ObjectReference>&) const = 0;
+    virtual std::string accept(Visitor<std::string>&) const = 0;
     virtual ~Expression() noexcept {}
 };
 
 // Statements -------------------------------------------------------------------------------------
 
 #define ACCEPT_STATEMENT_VISITORS \
-    void accept(const Statement::Visitor<void>& v) const override {\
+    void accept(Statement::Visitor<void>& v) const override {\
         return v(*this);\
     }\
-    std::string accept(const Statement::Visitor<std::string>& v) const override {\
+    std::string accept(Statement::Visitor<std::string>& v) const override {\
         return v(*this);\
     }
 
@@ -160,13 +160,13 @@ struct Declaration : Statement {
 // Expressions ------------------------------------------------------------------------------------
 
 #define ACCEPT_EXPRESSION_VISITORS \
-    void accept(const Expression::Visitor<void>& v) const override {\
+    void accept(Expression::Visitor<void>& v) const override {\
         return v(*this);\
     }\
-    ObjectReference accept(const Expression::Visitor<ObjectReference>& v) const override {\
+    ObjectReference accept(Expression::Visitor<ObjectReference>& v) const override {\
         return v(*this);\
     }\
-    std::string accept(const Expression::Visitor<std::string>& v) const override {\
+    std::string accept(Expression::Visitor<std::string>& v) const override {\
         return v(*this);\
     }
 

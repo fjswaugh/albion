@@ -61,7 +61,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
 
     std::shared_ptr<Environment> environment;
 
-    ObjectReference operator()(const Ast::Assign& a) const override
+    ObjectReference operator()(const Ast::Assign& a) override
     {
         auto value = a.expression->accept(*this);
 
@@ -72,7 +72,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         return value;
     }
 
-    ObjectReference operator()(const Ast::Binary& b) const override
+    ObjectReference operator()(const Ast::Binary& b) override
     try {
         auto left = b.left->accept(*this);
         auto right = b.right->accept(*this);
@@ -113,7 +113,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         throw RuntimeError(b.op, "bad operand type");
     }
 
-    ObjectReference operator()(const Ast::Call& c) const override {
+    ObjectReference operator()(const Ast::Call& c) override {
         ObjectReference callee = c.callee->accept(*this);
 
         FunctionInput<ObjectReference> input = [this, &c] {
@@ -143,19 +143,19 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         return callee.visit(visitor);
     }
 
-    ObjectReference operator()(const Ast::Function& f) const override
+    ObjectReference operator()(const Ast::Function& f) override
     {
         return Function(f, environment);
     }
 
-    ObjectReference operator()(const Ast::Grouping& g) const override
+    ObjectReference operator()(const Ast::Grouping& g) override
     {
         return g.expression->accept(*this);
     };
 
-    ObjectReference operator()(const Ast::Literal& l) const override { return l.value; };
+    ObjectReference operator()(const Ast::Literal& l) override { return l.value; };
 
-    ObjectReference operator()(const Ast::Logical& l) const override
+    ObjectReference operator()(const Ast::Logical& l) override
     {
         ObjectReference left = l.left->accept(*this);
 
@@ -168,7 +168,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         return l.right->accept(*this);
     };
 
-    ObjectReference operator()(const Ast::Tuple& t) const override {
+    ObjectReference operator()(const Ast::Tuple& t) override {
         Tuple tuple;
         for (auto& expression : t.elements) {
             tuple.push_back(expression->accept(*this));
@@ -176,7 +176,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         return tuple;
     };
 
-    ObjectReference operator()(const Ast::Unary& u) const override
+    ObjectReference operator()(const Ast::Unary& u) override
     try {
         auto right = u.right->accept(*this);
 
@@ -194,12 +194,12 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         throw RuntimeError(u.op, "bad operand type");
     }
 
-    ObjectReference operator()(const Ast::Variable& v) const override
+    ObjectReference operator()(const Ast::Variable& v) override
     {
         return environment->get(v.name);
     }
 
-    ObjectReference operator()(const Ast::VariableTuple&) const override
+    ObjectReference operator()(const Ast::VariableTuple&) override
     {
         assert(false &&
                "Shouldn't need to evaluate a Ast::VariableTuple, they're only assigned to");
@@ -207,7 +207,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
     }
 
 
-    void operator()(const Ast::Block& b) const override
+    void operator()(const Ast::Block& b) override
     {
         auto new_environment = std::make_shared<Environment>(environment);
         Interpreter new_interpreter{new_environment};
@@ -217,12 +217,12 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         }
     }
 
-    void operator()(const Ast::ExpressionStatement& es) const override
+    void operator()(const Ast::ExpressionStatement& es) override
     {
         if (es.expression) (*es.expression)->accept(*this);
     }
 
-    void operator()(const Ast::If& i) const override
+    void operator()(const Ast::If& i) override
     {
         if (is_truthy(i.condition->accept(*this))) {
             i.then_branch->accept(*this);
@@ -231,7 +231,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         }
     }
 
-    void operator()(const Ast::Return& r) const override
+    void operator()(const Ast::Return& r) override
     {
         // Default return value is nil
         ObjectReference value = nullptr;
@@ -243,14 +243,14 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         throw Return_value{std::move(value)};
     }
 
-    void operator()(const Ast::While& w) const override
+    void operator()(const Ast::While& w) override
     {
         while (is_truthy(w.condition->accept(*this))) {
             w.body->accept(*this);
         }
     }
 
-    void operator()(const Ast::Declaration& d) const override
+    void operator()(const Ast::Declaration& d) override
     {
         if (!d.initializer) {
             define_variable_tuple(*d.variable, *environment);
