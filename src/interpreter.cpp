@@ -133,7 +133,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
                 return call(f, input, c.token);
             },
             [&](const BuiltInFunction& f) -> ObjectReference {
-                return f.call(input);
+                return f.call(input, c.token);
             },
             [&](auto) -> ObjectReference {
                 throw RuntimeError(c.token, "can only call functions");

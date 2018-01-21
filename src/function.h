@@ -44,7 +44,6 @@ struct ObjectReference;
 
 struct BuiltInFunction {
     std::string name;
-    std::function<ObjectReference(const FunctionInput<ObjectReference>&)> call;
-    std::size_t arity;
+    std::function<ObjectReference(const FunctionInput<ObjectReference>&, const Token&)> call;
 };
 
