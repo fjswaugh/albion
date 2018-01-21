@@ -1,0 +1,78 @@
+Add comments to code
+
+Add unit tests
+
+Resolver
+
+Comma at the end of tuples, not beginning
+
+    var t = 1,;
+
+Conditional declaration
+
+    var x|double, s|string;
+    x = "str";  // RunTimeError
+
+Make definition not alter the value if previously defined
+
+Default values (need to pick a syntax for @)
+
+    var x, y@1 = 42,;
+
+Types
+
+    type T {
+        x|double@0,
+        y|double@0,
+        s|string@""
+    };
+
+    // This creates a type T, a checking function T, and a constructor T
+    // (I may need a way to differentiate these)
+    var t|T = .T;
+    var u|T = 1, 2, "string" -> T;
+
+    u:x = 42;
+    u:x.print;
+
+Concatenation operator for tuples
+
+    (1, 2) ++ (3, 4) == (1, 2, 3, 4);
+    1 ++ (2, 3) == (1, 2, 3);
+    (1, 2) ++ 3 == (1, 2, 3);
+
+Possibly add easier way to add a function than the following:
+
+    var sort;
+    sort = sort ++ fun {};
+
+Function overloading
+
+    // Let's add another constructor for T
+    T = T ++ fun s|string { return (42, 42, s).T; };
+
+Add object dereferencing
+
+    var x = 3;
+    var y = x;
+    *y = *4;  // x is now 4
+
+Lists
+    
+    var l = [1, 2, 3];
+    l + [4, 5, 6] -> print;
+
+Modules
+
+Private data
+
+    type T {
+        z|string@"hey",
+        private x|double@0, y@nil;
+    };
+
+    // The <T> syntax allows access to private data
+    // Only allow these in the same module
+    print = print + fun<T> t|T { t:z, t:x, t:y -> print; };
+
+Dictionaries
