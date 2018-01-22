@@ -92,8 +92,10 @@ void Resolver::operator()(const Ast::Assign& a)
                       [this](const Ast::Variable& v) { locations_[&v] = scopes_.resolve(v); });
 }
 
-void Resolver::operator()(const Ast::Binary&)
+void Resolver::operator()(const Ast::Binary& b)
 {
+    b.left->accept(*this);
+    b.right->accept(*this);
 }
 
 void Resolver::operator()(const Ast::Call& c)
@@ -115,24 +117,33 @@ void Resolver::operator()(const Ast::Function& f)
     scopes_.pop();
 }
 
-void Resolver::operator()(const Ast::Grouping&)
+void Resolver::operator()(const Ast::Grouping& g)
 {
+    g.expression->accept(*this);
 }
 
 void Resolver::operator()(const Ast::Literal&)
 {
+    // A literal expression doesn't mention any variables, nor does it contain
+    // any subexpressions, so there is nothing to resolve
 }
 
-void Resolver::operator()(const Ast::Logical&)
+void Resolver::operator()(const Ast::Logical& l)
 {
+    l.left->accept(*this);
+    l.right->accept(*this);
 }
 
-void Resolver::operator()(const Ast::Tuple&)
+void Resolver::operator()(const Ast::Tuple& t)
 {
+    for (const auto& e : t.elements) {
+        e->accept(*this);
+    }
 }
 
-void Resolver::operator()(const Ast::Unary&)
+void Resolver::operator()(const Ast::Unary& u)
 {
+    u.right->accept(*this);
 }
 
 void Resolver::operator()(const Ast::Variable& v)
@@ -155,20 +166,33 @@ void Resolver::operator()(const Ast::Block& b)
     scopes_.pop();
 }
 
-void Resolver::operator()(const Ast::ExpressionStatement&)
+void Resolver::operator()(const Ast::ExpressionStatement& es)
 {
+    if (es.expression) {
+        (*es.expression)->accept(*this);
+    }
 }
 
-void Resolver::operator()(const Ast::If&)
+void Resolver::operator()(const Ast::If& if_statement)
 {
+    if_statement.condition->accept(*this);
+    if_statement.then_branch->accept(*this);
+    if (if_statement.else_branch) {
+        (*if_statement.else_branch)->accept(*this);
+    }
 }
 
-void Resolver::operator()(const Ast::Return&)
+void Resolver::operator()(const Ast::Return& r)
 {
+    if (r.expression) {
+        (*r.expression)->accept(*this);
+    }
 }
 
-void Resolver::operator()(const Ast::While&)
+void Resolver::operator()(const Ast::While& w)
 {
+    w.condition->accept(*this);
+    w.body->accept(*this);
 }
 
 void Resolver::operator()(const Ast::Declaration& d)
