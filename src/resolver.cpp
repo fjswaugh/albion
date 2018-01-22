@@ -26,13 +26,13 @@ bool Scope::has_defined(const Ast::Variable& v) const
 struct ScopeStack {
     ScopeStack() = default;
 
-    bool empty() const { return data_.empty(); }
     auto size() const { return data_.size(); }
+    bool empty() const { return data_.empty(); }
 
     void push() { data_.emplace_back(); }
     void pop() { data_.pop_back(); }
 
-    Scope& top() { return data_.back(); }
+    Scope& top() { assert((!data_.empty())); return data_.back(); }
     const Scope& top() const { return data_.back(); }
 
     int resolve(const Ast::Variable&) const;
@@ -208,13 +208,11 @@ void Resolver::operator()(const Ast::Declaration& d)
 
 }
 
-Locations resolve(const Ast::Ast& ast)
+void resolve(const Ast::Ast& ast, Locations& l)
 {
-    Locations l;
     Resolver r{l};
     for (const auto& statement : ast) {
         statement->accept(r);
     }
-    return l;
 }
 

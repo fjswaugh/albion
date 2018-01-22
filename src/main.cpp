@@ -50,6 +50,7 @@ private:
     DebugOptions debug_options_;
     ErrorCode error_code_ = ErrorCode::no_error;
     std::shared_ptr<Environment> environment_ = std::make_shared<Environment>();
+    Locations locations_;
 };
 
 ErrorCode Program::run_file(std::string_view path)
@@ -88,9 +89,9 @@ try {
         std::cout << to_string(ast) << '\n';
     }
 
-    resolve(ast);
+    resolve(ast, locations_);
 
-    interpret(ast, environment_);
+    interpret(ast, environment_, locations_);
 
     return error_code_;
 }
@@ -130,7 +131,7 @@ try {
 
     return static_cast<int>(program.error());
 }
-catch (const Return_value& rv) {
+catch (const ReturnValue& rv) {
     std::cout << to_string(rv.value) << '\n';
     return static_cast<int>(ErrorCode::no_error);
 }

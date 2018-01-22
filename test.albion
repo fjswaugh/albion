@@ -1,26 +1,38 @@
-var loop = fun f n {
-    if (n == nil) n = 10;
+//var loop = fun f n {
+//    if (n == nil) n = 10;
+//
+//    for (var i = 0; i < n; i = i + 1) {
+//        .f;
+//    }
+//};
+//
+//var time = fun f n {
+//    if (f == nil) f = fun {};
+//    if (n == nil) n = 10000;
+//
+//    var begin = .clock;
+//
+//    f.loop(n);
+//
+//    var end = .clock;
+//
+//    return (end - begin) / n;
+//};
+//
+//var f = fun x { return x + x; };
+//
+//fun { "str".f; }.time.print;
+//fun { 42.f; }.time.print;
+//.time.print;
 
-    for (var i = 0; i < n; i = i + 1) {
-        .f;
-    }
-};
+var x = "global";
 
-var time = fun f n {
-    if (f == nil) f = fun {};
-    if (n == nil) n = 10000;
+{
+    var f = fun { x.print; };
 
-    var begin = .clock;
+    .f;
+    var x = "local";
 
-    f.loop(n);
 
-    var end = .clock;
-
-    return (end - begin) / n;
-};
-
-var f = fun x { return x + x; };
-
-fun { "str".f; }.time.print;
-fun { 42.f; }.time.print;
-.time.print;
+    .f;
+}

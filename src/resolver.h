@@ -7,5 +7,5 @@ struct ScopeStack;
 
 using Locations = std::unordered_map<const Ast::Variable*, int>;
 
-Locations resolve(const Ast::Ast&);
+void resolve(const Ast::Ast&, Locations&);
 

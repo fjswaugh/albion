@@ -7,6 +7,8 @@ Add code documentation
     Note that smart pointer types are never set to nullptr
     Document visitor pattern
     What's a VariableTuple?
+    Why are we throwing return values?
+    Global vs. local scope, why we don't try to resolve in the global scope?
 
 Add unit tests
 
@@ -28,6 +30,12 @@ Consider errors:
     This type of thing you probably want to fail, so maybe runtime errors should be kept and only
     thrown by the interpreter, reserved for errors that involve undefined variables and other
     critical program deficiencies.
+
+Add modules
+
+    import syntax
+    Consider import in a local scope
+    Add namespaces
 
 Comma at the end of tuples, not beginning
 

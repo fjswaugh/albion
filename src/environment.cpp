@@ -26,6 +26,11 @@ void Environment::assign(const Token& token, ObjectReference value) {
     }
 }
 
+void Environment::assign_at(const Token& token, ObjectReference value, int depth)
+{
+    this->ancestor(depth)->assign(token, std::move(value));
+}
+
 const ObjectReference& Environment::get(const Token& token) const {
     const auto it = values_.find(token.lexeme);
     if (it == values_.end()) {
@@ -33,5 +38,28 @@ const ObjectReference& Environment::get(const Token& token) const {
         throw RuntimeError(token, "undefined variable '" + token.lexeme + "'");
     }
     return it->second;
+}
+
+const ObjectReference& Environment::get_at(const Token& token, int depth) const
+{
+    return this->ancestor(depth)->get(token);
+}
+
+const Environment* Environment::ancestor(int distance) const
+{
+    auto* environment = this;
+    for (int i = 0; i < distance; ++i) {
+        environment = environment->enclosing_.get();
+    }
+    return environment;
+}
+
+Environment* Environment::ancestor(int distance)
+{
+    auto* environment = this;
+    for (int i = 0; i < distance; ++i) {
+        environment = environment->enclosing_.get();
+    }
+    return environment;
 }
 

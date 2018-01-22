@@ -4,6 +4,7 @@
 #include "environment.h"
 #include "ast.h"
 #include "error.h"
+#include "resolver.h"
 
 namespace {
 
@@ -49,24 +50,27 @@ void define_variable_tuple(const Ast::VariableTuple& vt, Environment& e)
     std::visit(f, vt.contents);
 }
 
-ObjectReference call(const Function&, const FunctionInput<ObjectReference>&, const Token&);
+ObjectReference call(const Function&, const Locations&,
+                     const FunctionInput<ObjectReference>&, const Token&);
 
 struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::Visitor<void> {
-    Interpreter(std::shared_ptr<Environment> e)
-        : environment{e}
+    Interpreter(std::shared_ptr<Environment> e, const Locations& locations)
+        : environment{e}, locations{locations}
     {}
 
     Interpreter(const Interpreter&) = delete;
     Interpreter(Interpreter&&) = delete;
 
     std::shared_ptr<Environment> environment;
+    const Locations& locations;
 
     ObjectReference operator()(const Ast::Assign& a) override
     {
         auto value = a.expression->accept(*this);
 
         const auto set_function = [this](const Ast::Variable& v, const ObjectReference& o) {
-            this->environment->assign(v.name, o);
+            const auto level = this->locations.find(&v)->second;
+            this->environment->assign_at(v.name, o, level);
         };
         set_variable_tuple(set_function, *a.variable, value, a.token);
         return value;
@@ -130,7 +134,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
 
         const auto visitor = combine(
             [&](const Function& f) -> ObjectReference {
-                return call(f, input, c.token);
+                return call(f, locations, input, c.token);
             },
             [&](const BuiltInFunction& f) -> ObjectReference {
                 return f.call(input, c.token);
@@ -153,7 +157,10 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
         return g.expression->accept(*this);
     };
 
-    ObjectReference operator()(const Ast::Literal& l) override { return l.value; };
+    ObjectReference operator()(const Ast::Literal& l) override
+    {
+        return l.value;
+    };
 
     ObjectReference operator()(const Ast::Logical& l) override
     {
@@ -196,7 +203,8 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
 
     ObjectReference operator()(const Ast::Variable& v) override
     {
-        return environment->get(v.name);
+        const auto level = locations.find(&v)->second;
+        return environment->get_at(v.name, level);
     }
 
     ObjectReference operator()(const Ast::VariableTuple&) override
@@ -210,7 +218,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
     void operator()(const Ast::Block& b) override
     {
         auto new_environment = std::make_shared<Environment>(environment);
-        Interpreter new_interpreter{new_environment};
+        Interpreter new_interpreter{new_environment, locations};
 
         for (auto& statement : b.statements) {
             statement->accept(new_interpreter);
@@ -240,7 +248,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
             value = (*r.expression)->accept(*this);
         }
 
-        throw Return_value{std::move(value)};
+        throw ReturnValue{std::move(value)};
     }
 
     void operator()(const Ast::While& w) override
@@ -266,7 +274,8 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
     }
 };
 
-ObjectReference call(const Function& f, const FunctionInput<ObjectReference>& input,
+ObjectReference call(const Function& f, const Locations& l,
+                     const FunctionInput<ObjectReference>& input,
                      const Token& token)
 {
     if (input.size() > f.expression().input.size()) {
@@ -277,7 +286,7 @@ ObjectReference call(const Function& f, const FunctionInput<ObjectReference>& in
     }
 
     auto new_environment = std::make_shared<Environment>(f.closure());
-    Interpreter new_interpreter{new_environment};
+    Interpreter new_interpreter{new_environment, l};
 
     const auto set_function = [&new_environment](const Ast::Variable& v,
                                                  const ObjectReference& o) {
@@ -293,7 +302,7 @@ ObjectReference call(const Function& f, const FunctionInput<ObjectReference>& in
 
     try {
         f.expression().body->accept(new_interpreter);
-    } catch (const Return_value& rv) {
+    } catch (const ReturnValue& rv) {
         return rv.value;
     }
     return nullptr;
@@ -301,9 +310,10 @@ ObjectReference call(const Function& f, const FunctionInput<ObjectReference>& in
 
 }  // Namespace
 
-void interpret(const Ast::Ast& ast, std::shared_ptr<Environment> environment)
+void interpret(const Ast::Ast& ast, std::shared_ptr<Environment> environment,
+               const Locations& locations)
 {
-    Interpreter i{std::move(environment)};
+    Interpreter i{std::move(environment), locations};
     for (auto& statement : ast) {
         statement->accept(i);
     }
