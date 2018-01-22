@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string_view>
 
+#include "resolver.h"
 #include "argagg.hpp"
 #include "scanner.h"
 #include "interpreter.h"
@@ -86,6 +87,8 @@ try {
     if (debug_options_ & DebugOptions::ast) {
         std::cout << to_string(ast) << '\n';
     }
+
+    resolve(ast);
 
     interpret(ast, environment_);
 

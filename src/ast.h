@@ -186,11 +186,25 @@ struct VariableTuple : Expression {
     VariableTuple(T&& contents)
         : contents{std::forward<T>(contents)}
     {}
+    VariableTuple(VariableTuple&&) = default;
 
     ACCEPT_EXPRESSION_VISITORS
 
     std::variant<Variable, std::vector<VariableTuple>> contents;
 };
+
+template <typename F>
+void for_each_variable(const VariableTuple& vt, F&& f) {
+    if (std::holds_alternative<Variable>(vt.contents)) {
+        std::forward<F>(f)(std::get<Variable>(vt.contents));
+    } else {
+        assert(std::holds_alternative<std::vector<VariableTuple>>(vt.contents));
+        const auto& vvt = std::get<std::vector<VariableTuple>>(vt.contents);
+        for (const auto& vt : vvt) {
+            for_each_variable(vt, std::forward<F>(f));
+        }
+    }
+}
 
 // Function expressions need to be copyable, since they are represented in the ast, and the
 // environment (within objects)

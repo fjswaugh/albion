@@ -1,5 +1,13 @@
 Add comments to code
 
+Change use of operator overloading for visitor pattern
+
+Add code documentation
+
+    Note that smart pointer types are never set to nullptr
+    Document visitor pattern
+    What's a VariableTuple?
+
 Add unit tests
 
 Resolver

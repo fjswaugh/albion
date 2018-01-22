@@ -168,11 +168,11 @@ std::unique_ptr<Ast::VariableTuple> parse_variable_tuple(ParseData& data)
 
     if (data.match_advance(Token::Type::comma)) {
         std::vector<Ast::VariableTuple> vec;
-        vec.push_back(*result);
+        vec.push_back(std::move(*result));
 
         do {
             if (data.match_advance(Token::Type::left_paren)) {
-                vec.push_back(*parse_variable_tuple(data));
+                vec.push_back(std::move(*parse_variable_tuple(data)));
                 data.expect(Token::Type::right_paren, "expect ')'");
             } else if (data.match(Token::Type::identifier)) {
                 vec.push_back(Ast::VariableTuple(data.advance()));
@@ -187,7 +187,7 @@ std::unique_ptr<Ast::VariableTuple> parse_variable_tuple(ParseData& data)
     // Ast::If there was a leading comma, then it should be a tuple, not a variable
     if (leading_comma) {
         std::vector<Ast::VariableTuple> vec;
-        vec.push_back(*result);
+        vec.push_back(std::move(*result));
         return std::make_unique<Ast::VariableTuple>(std::move(vec));
     }
 

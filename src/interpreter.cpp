@@ -201,8 +201,8 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
 
     ObjectReference operator()(const Ast::VariableTuple&) override
     {
-        assert(false &&
-               "Shouldn't need to evaluate a Ast::VariableTuple, they're only assigned to");
+        assert(false && "Shouldn't need to evaluate an Ast::VariableTuple, they're just part of "
+                        "assignments and variable declarations");
         return nullptr;
     }
 
