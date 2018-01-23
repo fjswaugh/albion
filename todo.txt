@@ -13,6 +13,7 @@ Add code documentation
 Add unit tests
 
 Resolver
+    Deal with errors in the resolver
 
 Consider errors:
 
