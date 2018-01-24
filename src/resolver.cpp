@@ -4,15 +4,6 @@
 #include <cassert>
 #include <unordered_set>
 
-struct Scope {
-    Scope() = default;
-
-    void define(const Ast::VariableTuple&);
-    bool has_defined(const Ast::Variable&) const;
-private:
-    std::unordered_set<std::string> data_;
-};
-
 void Scope::define(const Ast::VariableTuple& vt)
 {
     for_each_variable(vt, [this](const Ast::Variable& v) { data_.insert(v.name.lexeme); });
@@ -23,43 +14,25 @@ bool Scope::has_defined(const Ast::Variable& v) const
     return data_.find(v.name.lexeme) != data_.end();
 }
 
-struct ScopeStack {
-    ScopeStack() = default;
-
-    auto size() const { return data_.size(); }
-    bool empty() const { return data_.empty(); }
-
-    void push() { data_.emplace_back(); }
-    void pop() { data_.pop_back(); }
-
-    Scope& top() { assert((!data_.empty())); return data_.back(); }
-    const Scope& top() const { return data_.back(); }
-
-    int resolve(const Ast::Variable&) const;
-private:
-    Scope& at(std::size_t i) { return data_[data_.size() - i - 1]; }
-    const Scope& at(std::size_t i) const { return data_[data_.size() - i - 1]; }
-
-    std::vector<Scope> data_;
-};
-
-int ScopeStack::resolve(const Ast::Variable& v) const
+std::optional<int> ScopeStack::resolve(const Ast::Variable& v) const
 {
     for (std::size_t i = 0; i < this->size(); ++i) {
         if (this->at(i).has_defined(v)) {
             return i;
         }
     }
-    return this->size();
+    return {};
 }
 
-namespace {
-
 struct Resolver : Ast::Expression::Visitor<void>, Ast::Statement::Visitor<void> {
-    Resolver(Locations& l) : locations_{l} {}
+    Resolver(ScopeStack& ss, Locations& l)
+        : scopes_{ss}, locations_{l}
+    {}
 
     Resolver(const Resolver&) = delete;
     Resolver(Resolver&&) = delete;
+
+    void resolve(const Ast::Ast& ast);
 
     void operator()(const Ast::Assign&) override;
     void operator()(const Ast::Binary&) override;
@@ -81,15 +54,18 @@ struct Resolver : Ast::Expression::Visitor<void>, Ast::Statement::Visitor<void> 
     void operator()(const Ast::Declaration&) override;
 
 private:
-    ScopeStack scopes_;
+    ScopeStack& scopes_;
     Locations& locations_;
 };
 
 void Resolver::operator()(const Ast::Assign& a)
 {
     a.expression->accept(*this);
-    for_each_variable(*a.variable,
-                      [this](const Ast::Variable& v) { locations_[&v] = scopes_.resolve(v); });
+    for_each_variable(*a.variable, [this](const Ast::Variable& v) {
+        if (const auto location = scopes_.resolve(v)) {
+            locations_[&v] = *location;
+        }
+    });
 }
 
 void Resolver::operator()(const Ast::Binary& b)
@@ -148,7 +124,9 @@ void Resolver::operator()(const Ast::Unary& u)
 
 void Resolver::operator()(const Ast::Variable& v)
 {
-    locations_[&v] = scopes_.resolve(v);
+    if (const auto location = scopes_.resolve(v)) {
+        locations_[&v] = *location;
+    }
 }
 
 void Resolver::operator()(const Ast::VariableTuple&)
@@ -160,9 +138,7 @@ void Resolver::operator()(const Ast::VariableTuple&)
 void Resolver::operator()(const Ast::Block& b)
 {
     scopes_.push();
-    for (const auto& statement : b.statements) {
-        statement->accept(*this);
-    }
+    this->resolve(b.statements);
     scopes_.pop();
 }
 
@@ -201,18 +177,21 @@ void Resolver::operator()(const Ast::Declaration& d)
         (*d.initializer)->accept(*this);
     }
 
-    if (!scopes_.empty()) {
-        scopes_.top().define(*d.variable);
-    }
+    scopes_.top().define(*d.variable);
 }
 
-}
-
-void resolve(const Ast::Ast& ast, Locations& l)
+void Resolver::resolve(const Ast::Ast& ast)
 {
-    Resolver r{l};
     for (const auto& statement : ast) {
-        statement->accept(r);
+        statement->accept(*this);
     }
+}
+
+Locations resolve(const Ast::Ast& ast, ScopeStack& scopes)
+{
+    Locations locations;
+    Resolver r{scopes, locations};
+    r.resolve(ast);
+    return locations;
 }
 

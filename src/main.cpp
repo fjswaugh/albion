@@ -23,15 +23,17 @@ struct DebugOptions {
     }
 
     static const DebugOptions none;
+    static const DebugOptions locations;
     static const DebugOptions ast;
     static const DebugOptions tokens;
 private:
     std::uint8_t data_;
 };
 
-const DebugOptions DebugOptions::none   = 0b00000000;
-const DebugOptions DebugOptions::ast    = 0b00000001;
-const DebugOptions DebugOptions::tokens = 0b00000010;
+const DebugOptions DebugOptions::none      = 0b00000000;
+const DebugOptions DebugOptions::locations = 0b00000001;
+const DebugOptions DebugOptions::ast       = 0b00000010;
+const DebugOptions DebugOptions::tokens    = 0b00000100;
 
 struct Program {
     Program(DebugOptions debug_options = DebugOptions::none)
@@ -49,8 +51,10 @@ struct Program {
 private:
     DebugOptions debug_options_;
     ErrorCode error_code_ = ErrorCode::no_error;
+
+    ScopeStack scopes_;
     std::shared_ptr<Environment> environment_ = std::make_shared<Environment>();
-    Locations locations_;
+    std::shared_ptr<Environment> global_environment_ = global_environment;
 };
 
 ErrorCode Program::run_file(std::string_view path)
@@ -89,9 +93,15 @@ try {
         std::cout << to_string(ast) << '\n';
     }
 
-    resolve(ast, locations_);
+    const auto locations = resolve(ast, scopes_);
 
-    interpret(ast, environment_, locations_);
+    if (debug_options_ & DebugOptions::locations) {
+        for (const auto& l : locations) {
+            std::cout << l.first->name.lexeme << " has level " << l.second << '\n';
+        }
+    }
+
+    interpret(ast, locations, environment_, global_environment_);
 
     return error_code_;
 }
@@ -109,14 +119,17 @@ void Program::report(const Error& e)
 int main(int argc, char** argv)
 try {
     argagg::parser arg_parser{{
-        {"tokens", {"-s", "--scanner-debug"}, "Debug scanner", 0},
-        {"ast",    {"-p", "--parser-debug"},  "Debug parser", 0},
+        {"tokens",    {"-s", "--scanner-debug"},  "Debug scanner",  0},
+        {"ast",       {"-p", "--parser-debug"},   "Debug parser",   0},
+        {"locations", {"-r", "--resolver-debug"}, "Debug resolver", 0},
     }};
 
     const auto args = arg_parser.parse(argc, argv);
 
-    const DebugOptions debug_options = static_cast<bool>(args["ast"]) * DebugOptions::ast +
-                                       static_cast<bool>(args["tokens"]) * DebugOptions::tokens;
+    const DebugOptions debug_options =
+        static_cast<bool>(args["locations"]) * DebugOptions::locations +
+        static_cast<bool>(args["ast"]) * DebugOptions::ast +
+        static_cast<bool>(args["tokens"]) * DebugOptions::tokens;
 
     Program program{debug_options};
 

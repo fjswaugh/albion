@@ -6,8 +6,6 @@
 #include "error.h"
 #include "resolver.h"
 
-namespace {
-
 // Attempt to set a Ast::VariableTuple vt to an ObjectReference o using a SetFunction
 // that takes a Ast::Variable and an ObjectReference
 template <typename SetFunction>
@@ -50,233 +48,264 @@ void define_variable_tuple(const Ast::VariableTuple& vt, Environment& e)
     std::visit(f, vt.contents);
 }
 
-ObjectReference call(const Function&, const Locations&,
-                     const FunctionInput<ObjectReference>&, const Token&);
-
 struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::Visitor<void> {
-    Interpreter(std::shared_ptr<Environment> e, const Locations& locations)
-        : environment{e}, locations{locations}
+    Interpreter(const Locations& locations, std::shared_ptr<Environment> e,
+                std::shared_ptr<Environment> ge)
+        : locations_{locations}, environment_{std::move(e)}, global_environment_{std::move(ge)}
     {}
 
     Interpreter(const Interpreter&) = delete;
     Interpreter(Interpreter&&) = delete;
 
-    std::shared_ptr<Environment> environment;
-    const Locations& locations;
+    ObjectReference call(const Function&, const FunctionInput<ObjectReference>&, const Token&);
 
-    ObjectReference operator()(const Ast::Assign& a) override
-    {
-        auto value = a.expression->accept(*this);
+    ObjectReference operator()(const Ast::Assign&) override;
+    ObjectReference operator()(const Ast::Binary&) override;
+    ObjectReference operator()(const Ast::Call&) override ;
+    ObjectReference operator()(const Ast::Function&) override;
+    ObjectReference operator()(const Ast::Grouping&) override;
+    ObjectReference operator()(const Ast::Literal&) override;
+    ObjectReference operator()(const Ast::Logical&) override;
+    ObjectReference operator()(const Ast::Tuple&) override ;
+    ObjectReference operator()(const Ast::Unary&) override;
+    ObjectReference operator()(const Ast::Variable&) override;
+    ObjectReference operator()(const Ast::VariableTuple&) override;
 
-        const auto set_function = [this](const Ast::Variable& v, const ObjectReference& o) {
-            const auto level = this->locations.find(&v)->second;
-            this->environment->assign_at(v.name, o, level);
-        };
-        set_variable_tuple(set_function, *a.variable, value, a.token);
-        return value;
-    }
+    void operator()(const Ast::Block&) override;
+    void operator()(const Ast::ExpressionStatement&) override;
+    void operator()(const Ast::If&) override;
+    void operator()(const Ast::Return&) override;
+    void operator()(const Ast::While&) override;
+    void operator()(const Ast::Declaration&) override;
 
-    ObjectReference operator()(const Ast::Binary& b) override
-    try {
-        auto left = b.left->accept(*this);
-        auto right = b.right->accept(*this);
-
-        switch (b.op.type) {
-            case Token::Type::minus:
-                return left.get<double>() - right.get<double>();
-            case Token::Type::slash:
-                return left.get<double>() / right.get<double>();
-            case Token::Type::star:
-                return left.get<double>() * right.get<double>();
-            case Token::Type::plus: {
-                if (left.holds<double>() && right.holds<double>()) {
-                    return left.get<double>() + right.get<double>();
-                }
-                if (left.holds<std::string>() && right.holds<std::string>()) {
-                    return left.get<std::string>() + right.get<std::string>();
-                }
-                throw RuntimeError(b.op, "bad operand type");
-            }
-            case Token::Type::greater:
-                return left.get<double>() > right.get<double>();
-            case Token::Type::greater_equal:
-                return left.get<double>() >= right.get<double>();
-            case Token::Type::less:
-                return left.get<double>() < right.get<double>();
-            case Token::Type::less_equal:
-                return left.get<double>() <= right.get<double>();
-            case Token::Type::bang_equal:
-                return left != right;
-            case Token::Type::equal_equal:
-                return left == right;
-            default:
-                throw RuntimeError(b.op, "bad operator type");
-        };
-    }
-    catch (const ObjectReference::Bad_access&) {
-        throw RuntimeError(b.op, "bad operand type");
-    }
-
-    ObjectReference operator()(const Ast::Call& c) override {
-        ObjectReference callee = c.callee->accept(*this);
-
-        FunctionInput<ObjectReference> input = [this, &c] {
-            switch (c.input.size()) {
-            case 0:
-                return FunctionInput<ObjectReference>();
-            case 1:
-                return FunctionInput<ObjectReference>(c.input.at(0)->accept(*this));
-            default:
-                return FunctionInput<ObjectReference>(c.input.at(0)->accept(*this),
-                                                      c.input.at(1)->accept(*this));
-            };
-        }();
-
-        const auto visitor = combine(
-            [&](const Function& f) -> ObjectReference {
-                return call(f, locations, input, c.token);
-            },
-            [&](const BuiltInFunction& f) -> ObjectReference {
-                return f.call(input, c.token);
-            },
-            [&](auto) -> ObjectReference {
-                throw RuntimeError(c.token, "can only call functions");
-            }
-        );
-
-        return callee.visit(visitor);
-    }
-
-    ObjectReference operator()(const Ast::Function& f) override
-    {
-        return Function(f, environment);
-    }
-
-    ObjectReference operator()(const Ast::Grouping& g) override
-    {
-        return g.expression->accept(*this);
-    };
-
-    ObjectReference operator()(const Ast::Literal& l) override
-    {
-        return l.value;
-    };
-
-    ObjectReference operator()(const Ast::Logical& l) override
-    {
-        ObjectReference left = l.left->accept(*this);
-
-        if (l.op.type == Token::Type::k_or) {
-            if (is_truthy(left)) return true;
-        } else {
-            if (!is_truthy(left)) return false;
-        } 
-
-        return l.right->accept(*this);
-    };
-
-    ObjectReference operator()(const Ast::Tuple& t) override {
-        Tuple tuple;
-        for (auto& expression : t.elements) {
-            tuple.push_back(expression->accept(*this));
-        }
-        return tuple;
-    };
-
-    ObjectReference operator()(const Ast::Unary& u) override
-    try {
-        auto right = u.right->accept(*this);
-
-        if (u.op.type == Token::Type::minus) {
-            return -right.get<double>();
-        }
-
-        if (u.op.type == Token::Type::bang) {
-            return !is_truthy(right);
-        }
-
-        throw RuntimeError(u.op, "bad operator type");
-    }
-    catch (const ObjectReference::Bad_access&) {
-        throw RuntimeError(u.op, "bad operand type");
-    }
-
-    ObjectReference operator()(const Ast::Variable& v) override
-    {
-        const auto level = locations.find(&v)->second;
-        return environment->get_at(v.name, level);
-    }
-
-    ObjectReference operator()(const Ast::VariableTuple&) override
-    {
-        assert(false && "Shouldn't need to evaluate an Ast::VariableTuple, they're just part of "
-                        "assignments and variable declarations");
-        return nullptr;
-    }
-
-
-    void operator()(const Ast::Block& b) override
-    {
-        auto new_environment = std::make_shared<Environment>(environment);
-        Interpreter new_interpreter{new_environment, locations};
-
-        for (auto& statement : b.statements) {
-            statement->accept(new_interpreter);
-        }
-    }
-
-    void operator()(const Ast::ExpressionStatement& es) override
-    {
-        if (es.expression) (*es.expression)->accept(*this);
-    }
-
-    void operator()(const Ast::If& i) override
-    {
-        if (is_truthy(i.condition->accept(*this))) {
-            i.then_branch->accept(*this);
-        } else {
-            if (i.else_branch) (*i.else_branch)->accept(*this);
-        }
-    }
-
-    void operator()(const Ast::Return& r) override
-    {
-        // Default return value is nil
-        ObjectReference value = nullptr;
-
-        if (r.expression) {
-            value = (*r.expression)->accept(*this);
-        }
-
-        throw ReturnValue{std::move(value)};
-    }
-
-    void operator()(const Ast::While& w) override
-    {
-        while (is_truthy(w.condition->accept(*this))) {
-            w.body->accept(*this);
-        }
-    }
-
-    void operator()(const Ast::Declaration& d) override
-    {
-        if (!d.initializer) {
-            define_variable_tuple(*d.variable, *environment);
-            return;
-        }
-
-        ObjectReference value = (*d.initializer)->accept(*this);
-
-        const auto set_function = [this](const Ast::Variable& v, const ObjectReference& o) {
-            environment->define(v.name.lexeme, o);
-        };
-        set_variable_tuple(set_function, *d.variable, value, d.token);
-    }
+private:
+    const Locations& locations_;
+    std::shared_ptr<Environment> environment_;
+    std::shared_ptr<Environment> global_environment_;
 };
 
-ObjectReference call(const Function& f, const Locations& l,
-                     const FunctionInput<ObjectReference>& input,
-                     const Token& token)
+ObjectReference Interpreter::operator()(const Ast::Assign& a)
+{
+    auto value = a.expression->accept(*this);
+
+    const auto set_function = [this](const Ast::Variable& v, const ObjectReference& o) {
+        if (const auto location = locations_.find(&v);
+            location != locations_.end())
+        {
+            const auto level = location->second;
+            this->environment_->assign_at(v.name, o, level);
+        } else {
+            this->global_environment_->assign(v.name, o);
+        }
+    };
+    set_variable_tuple(set_function, *a.variable, value, a.token);
+    return value;
+}
+
+ObjectReference Interpreter::operator()(const Ast::Binary& b)
+try {
+    auto left = b.left->accept(*this);
+    auto right = b.right->accept(*this);
+
+    switch (b.op.type) {
+        case Token::Type::minus:
+            return left.get<double>() - right.get<double>();
+        case Token::Type::slash:
+            return left.get<double>() / right.get<double>();
+        case Token::Type::star:
+            return left.get<double>() * right.get<double>();
+        case Token::Type::plus: {
+            if (left.holds<double>() && right.holds<double>()) {
+                return left.get<double>() + right.get<double>();
+            }
+            if (left.holds<std::string>() && right.holds<std::string>()) {
+                return left.get<std::string>() + right.get<std::string>();
+            }
+            throw RuntimeError(b.op, "bad operand type");
+        }
+        case Token::Type::greater:
+            return left.get<double>() > right.get<double>();
+        case Token::Type::greater_equal:
+            return left.get<double>() >= right.get<double>();
+        case Token::Type::less:
+            return left.get<double>() < right.get<double>();
+        case Token::Type::less_equal:
+            return left.get<double>() <= right.get<double>();
+        case Token::Type::bang_equal:
+            return left != right;
+        case Token::Type::equal_equal:
+            return left == right;
+        default:
+            throw RuntimeError(b.op, "bad operator type");
+    };
+}
+catch (const ObjectReference::Bad_access&) {
+    throw RuntimeError(b.op, "bad operand type");
+}
+
+ObjectReference Interpreter::operator()(const Ast::Call& c) {
+    ObjectReference callee = c.callee->accept(*this);
+
+    FunctionInput<ObjectReference> input = [this, &c] {
+        switch (c.input.size()) {
+        case 0:
+            return FunctionInput<ObjectReference>();
+        case 1:
+            return FunctionInput<ObjectReference>(c.input.at(0)->accept(*this));
+        default:
+            return FunctionInput<ObjectReference>(c.input.at(0)->accept(*this),
+                                                  c.input.at(1)->accept(*this));
+        };
+    }();
+
+    const auto visitor = combine(
+        [&](const Function& f) -> ObjectReference {
+            return this->call(f, input, c.token);
+        },
+        [&](const BuiltInFunction& f) -> ObjectReference {
+            return f.call(input, c.token);
+        },
+        [&](auto) -> ObjectReference {
+            throw RuntimeError(c.token, "can only call functions");
+        }
+    );
+
+    return callee.visit(visitor);
+}
+
+ObjectReference Interpreter::operator()(const Ast::Function& f)
+{
+    return Function(f, environment_);
+}
+
+ObjectReference Interpreter::operator()(const Ast::Grouping& g)
+{
+    return g.expression->accept(*this);
+};
+
+ObjectReference Interpreter::operator()(const Ast::Literal& l)
+{
+    return l.value;
+};
+
+ObjectReference Interpreter::operator()(const Ast::Logical& l)
+{
+    ObjectReference left = l.left->accept(*this);
+
+    if (l.op.type == Token::Type::k_or) {
+        if (is_truthy(left)) return true;
+    } else {
+        if (!is_truthy(left)) return false;
+    } 
+
+    return l.right->accept(*this);
+};
+
+ObjectReference Interpreter::operator()(const Ast::Tuple& t) {
+    Tuple tuple;
+    for (auto& expression : t.elements) {
+        tuple.push_back(expression->accept(*this));
+    }
+    return tuple;
+};
+
+ObjectReference Interpreter::operator()(const Ast::Unary& u)
+try {
+    auto right = u.right->accept(*this);
+
+    if (u.op.type == Token::Type::minus) {
+        return -right.get<double>();
+    }
+
+    if (u.op.type == Token::Type::bang) {
+        return !is_truthy(right);
+    }
+
+    throw RuntimeError(u.op, "bad operator type");
+}
+catch (const ObjectReference::Bad_access&) {
+    throw RuntimeError(u.op, "bad operand type");
+}
+
+ObjectReference Interpreter::operator()(const Ast::Variable& v)
+{
+    if (const auto location = locations_.find(&v);
+        location != locations_.end())
+    {
+        return environment_->get_at(v.name, location->second);
+    } else {
+        return global_environment_->get(v.name);
+    }
+}
+
+ObjectReference Interpreter::operator()(const Ast::VariableTuple&)
+{
+    assert(false && "Shouldn't need to evaluate an Ast::VariableTuple, they're just part of "
+                    "assignments and variable declarations");
+    return nullptr;
+}
+
+
+void Interpreter::operator()(const Ast::Block& b)
+{
+    auto new_environment = std::make_shared<Environment>(environment_);
+    Interpreter new_interpreter{locations_, new_environment, global_environment_};
+
+    for (auto& statement : b.statements) {
+        statement->accept(new_interpreter);
+    }
+}
+
+void Interpreter::operator()(const Ast::ExpressionStatement& es)
+{
+    if (es.expression) (*es.expression)->accept(*this);
+}
+
+void Interpreter::operator()(const Ast::If& i)
+{
+    if (is_truthy(i.condition->accept(*this))) {
+        i.then_branch->accept(*this);
+    } else {
+        if (i.else_branch) (*i.else_branch)->accept(*this);
+    }
+}
+
+void Interpreter::operator()(const Ast::Return& r)
+{
+    // Default return value is nil
+    ObjectReference value = nullptr;
+
+    if (r.expression) {
+        value = (*r.expression)->accept(*this);
+    }
+
+    throw ReturnValue{std::move(value)};
+}
+
+void Interpreter::operator()(const Ast::While& w)
+{
+    while (is_truthy(w.condition->accept(*this))) {
+        w.body->accept(*this);
+    }
+}
+
+void Interpreter::operator()(const Ast::Declaration& d)
+{
+    if (!d.initializer) {
+        define_variable_tuple(*d.variable, *environment_);
+        return;
+    }
+
+    ObjectReference value = (*d.initializer)->accept(*this);
+
+    const auto set_function = [this](const Ast::Variable& v, const ObjectReference& o) {
+        environment_->define(v.name.lexeme, o);
+    };
+    set_variable_tuple(set_function, *d.variable, value, d.token);
+}
+
+ObjectReference Interpreter::call(const Function& f, const FunctionInput<ObjectReference>& input,
+                                  const Token& token)
 {
     if (input.size() > f.expression().input.size()) {
         auto expects = std::to_string(f.expression().input.size());
@@ -286,7 +315,7 @@ ObjectReference call(const Function& f, const Locations& l,
     }
 
     auto new_environment = std::make_shared<Environment>(f.closure());
-    Interpreter new_interpreter{new_environment, l};
+    Interpreter new_interpreter{locations_, new_environment, global_environment_};
 
     const auto set_function = [&new_environment](const Ast::Variable& v,
                                                  const ObjectReference& o) {
@@ -308,12 +337,11 @@ ObjectReference call(const Function& f, const Locations& l,
     return nullptr;
 }
 
-}  // Namespace
-
-void interpret(const Ast::Ast& ast, std::shared_ptr<Environment> environment,
-               const Locations& locations)
+void interpret(const Ast::Ast& ast, const Locations& locations,
+               std::shared_ptr<Environment> environment,
+               std::shared_ptr<Environment> global_environment)
 {
-    Interpreter i{std::move(environment), locations};
+    Interpreter i{locations, std::move(environment), std::move(global_environment)};
     for (auto& statement : ast) {
         statement->accept(i);
     }

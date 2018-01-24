@@ -10,7 +10,7 @@
 extern std::shared_ptr<Environment> global_environment;
 
 struct Environment {
-    Environment(std::shared_ptr<Environment> enclosing = global_environment)
+    Environment(std::shared_ptr<Environment> enclosing = nullptr)
         : enclosing_{std::move(enclosing)}
     {}
 

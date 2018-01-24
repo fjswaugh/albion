@@ -11,6 +11,6 @@ struct ReturnValue {
     ObjectReference value;
 };
 
-void interpret(const Ast::Ast& ast, std::shared_ptr<Environment> environment,
-               const Locations& locations);
+void interpret(const Ast::Ast& ast, const Locations&, std::shared_ptr<Environment> environment,
+               std::shared_ptr<Environment> global_environment);
 
