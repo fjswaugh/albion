@@ -7,5 +7,4 @@
 #include <functional>
 #include <vector>
 
-Ast::Ast parse(const std::vector<Token>& tokens, std::function<void(const ParseError&)> report_error);
-
+Ast::Ast parse(const std::vector<Token>& tokens, std::function<void(const Error&)> report_error);

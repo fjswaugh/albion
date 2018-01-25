@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -53,17 +54,14 @@ private:
     ErrorCode error_code_ = ErrorCode::no_error;
 
     ScopeStack scopes_;
+    Locations locations_;
     std::shared_ptr<Environment> environment_ = std::make_shared<Environment>();
     std::shared_ptr<Environment> global_environment_ = global_environment;
 };
 
 ErrorCode Program::run_file(std::string_view path)
 {
-    const auto file = std::ifstream(path.data());
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-
-    return this->run(buffer.str());
+    return this->run(read_file(path));
 }
 
 void Program::run_prompt()
@@ -85,7 +83,7 @@ try {
         }
     }
 
-    auto ast = parse(tokens, [this](const ParseError& e) { this->report(e); });
+    auto ast = parse(tokens, [this](const Error& e) { this->report(e); });
 
     if (error_code_ != ErrorCode::no_error) return error_code_;
 
@@ -93,15 +91,17 @@ try {
         std::cout << to_string(ast) << '\n';
     }
 
-    const auto locations = resolve(ast, scopes_);
+    resolve(ast, scopes_, locations_);
 
     if (debug_options_ & DebugOptions::locations) {
-        for (const auto& l : locations) {
-            std::cout << l.first->name.lexeme << " has level " << l.second << '\n';
+        Locations recent_locations;
+        resolve(ast, scopes_, recent_locations);
+        for (const auto& l : recent_locations) {
+            std::cout << l.first << " has level " << l.second << '\n';
         }
     }
 
-    interpret(ast, locations, environment_, global_environment_);
+    interpret(ast, locations_, environment_, global_environment_);
 
     return error_code_;
 }

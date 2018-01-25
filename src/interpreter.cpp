@@ -77,6 +77,7 @@ struct Interpreter : Ast::Expression::Visitor<ObjectReference>, Ast::Statement::
     void operator()(const Ast::Return&) override;
     void operator()(const Ast::While&) override;
     void operator()(const Ast::Declaration&) override;
+    void operator()(const Ast::Import&) override;
 
 private:
     const Locations& locations_;
@@ -89,7 +90,7 @@ ObjectReference Interpreter::operator()(const Ast::Assign& a)
     auto value = a.expression->accept(*this);
 
     const auto set_function = [this](const Ast::Variable& v, const ObjectReference& o) {
-        if (const auto location = locations_.find(&v);
+        if (const auto location = locations_.find(v.id);
             location != locations_.end())
         {
             const auto level = location->second;
@@ -229,7 +230,7 @@ catch (const ObjectReference::Bad_access&) {
 
 ObjectReference Interpreter::operator()(const Ast::Variable& v)
 {
-    if (const auto location = locations_.find(&v);
+    if (const auto location = locations_.find(v.id);
         location != locations_.end())
     {
         return environment_->get_at(v.name, location->second);
@@ -302,6 +303,22 @@ void Interpreter::operator()(const Ast::Declaration& d)
         environment_->define(v.name.lexeme, o);
     };
     set_variable_tuple(set_function, *d.variable, value, d.token);
+}
+
+void Interpreter::operator()(const Ast::Import& i)
+{
+    // If it's imported in place, we interpret in the current environment, otherwise we create an
+    // entirely new environment
+    auto new_environment = i.variable ? std::make_shared<Environment>() : environment_;
+
+    interpret(i.ast, locations_, new_environment, global_environment_);
+
+    if (i.variable) { 
+        // If we're importing into an object, then we define that object here
+        Set& s = new_environment->set();
+        ObjectReference o{std::move(s)};
+        environment_->define((*i.variable)->name.lexeme, o);
+    }
 }
 
 ObjectReference Interpreter::call(const Function& f, const FunctionInput<ObjectReference>& input,

@@ -14,6 +14,13 @@ bool Scope::has_defined(const Ast::Variable& v) const
     return data_.find(v.name.lexeme) != data_.end();
 }
 
+void Scope::combine_with(const Scope& scope)
+{
+    for (const auto& str : scope.data_) {
+        data_.insert(str);
+    }
+}
+
 std::optional<int> ScopeStack::resolve(const Ast::Variable& v) const
 {
     for (std::size_t i = 0; i < this->size(); ++i) {
@@ -52,6 +59,7 @@ struct Resolver : Ast::Expression::Visitor<void>, Ast::Statement::Visitor<void> 
     void operator()(const Ast::Return&) override;
     void operator()(const Ast::While&) override;
     void operator()(const Ast::Declaration&) override;
+    void operator()(const Ast::Import&) override;
 
 private:
     ScopeStack& scopes_;
@@ -63,7 +71,7 @@ void Resolver::operator()(const Ast::Assign& a)
     a.expression->accept(*this);
     for_each_variable(*a.variable, [this](const Ast::Variable& v) {
         if (const auto location = scopes_.resolve(v)) {
-            locations_[&v] = *location;
+            locations_[v.id] = *location;
         }
     });
 }
@@ -125,7 +133,7 @@ void Resolver::operator()(const Ast::Unary& u)
 void Resolver::operator()(const Ast::Variable& v)
 {
     if (const auto location = scopes_.resolve(v)) {
-        locations_[&v] = *location;
+        locations_[v.id] = *location;
     }
 }
 
@@ -180,6 +188,23 @@ void Resolver::operator()(const Ast::Declaration& d)
     scopes_.top().define(*d.variable);
 }
 
+void Resolver::operator()(const Ast::Import& i)
+{
+    ScopeStack new_scopestack;
+
+    Resolver new_resolver{new_scopestack, locations_};
+    new_resolver.resolve(i.ast);
+
+    if (i.variable) {
+        // If we are setting this to a variable, then all we need to do is define that variable
+        scopes_.top().define(**i.variable);
+    } else {
+        // If we are just straight up importing, then we need to add the root of the new scopestack
+        // to the current scope
+        scopes_.top().combine_with(new_scopestack.bottom());
+    }
+}
+
 void Resolver::resolve(const Ast::Ast& ast)
 {
     for (const auto& statement : ast) {
@@ -187,11 +212,9 @@ void Resolver::resolve(const Ast::Ast& ast)
     }
 }
 
-Locations resolve(const Ast::Ast& ast, ScopeStack& scopes)
+void resolve(const Ast::Ast& ast, ScopeStack& scopes, Locations& locations)
 {
-    Locations locations;
     Resolver r{scopes, locations};
     r.resolve(ast);
-    return locations;
 }
 

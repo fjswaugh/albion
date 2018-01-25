@@ -25,7 +25,7 @@ struct Token {
 
         // Keywords
         k_and, k_class, k_else, k_false, k_fun, k_for, k_if, k_nil, k_or,
-        k_return, k_super, k_this, k_true, k_var, k_while,
+        k_return, k_super, k_this, k_true, k_var, k_while, k_import, k_as,
 
         eof
     };
@@ -80,6 +80,8 @@ inline std::string to_string(const Token::Type tt) {
         case Token::Type::k_true: return "k_true";
         case Token::Type::k_var: return "k_var";
         case Token::Type::k_while: return "k_while";
+        case Token::Type::k_import: return "k_import";
+        case Token::Type::k_as: return "k_as";
         case Token::Type::eof: return "eof";
         default: assert(false); return "";
     }

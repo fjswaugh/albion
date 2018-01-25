@@ -34,6 +34,15 @@ std::string to_string(const ObjectReference& o)
             s.pop_back();
             s.pop_back();
             s += ")";
+        },
+        [&s](const Set& x) {
+            s += "{";
+            for (const auto& [name, o] : x) {
+                s += name + " = " + to_string(o) + ", ";
+            }
+            s.pop_back();
+            s.pop_back();
+            s += "}";
         }
     );
     o.visit(stringify);

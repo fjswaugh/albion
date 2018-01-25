@@ -7,13 +7,15 @@
 
 struct ScopeStack;
 
-using Locations = std::unordered_map<const Ast::Variable*, int>;
+using Locations = std::unordered_map<std::uint64_t, int>;
 
 struct Scope {
     Scope() = default;
 
     void define(const Ast::VariableTuple&);
     bool has_defined(const Ast::Variable&) const;
+
+    void combine_with(const Scope&);
 private:
     std::unordered_set<std::string> data_;
 };
@@ -27,7 +29,10 @@ struct ScopeStack {
     void pop() { data_.pop_back(); }
 
     Scope& top() { assert((!data_.empty())); return data_.back(); }
-    const Scope& top() const { return data_.back(); }
+    const Scope& top() const { assert((!data_.empty())); return data_.back(); }
+
+    Scope& bottom() { assert((!data_.empty())); return data_.front(); }
+    const Scope& bottom() const { assert((!data_.empty())); return data_.front(); }
 
     std::optional<int> resolve(const Ast::Variable&) const;
 private:
@@ -37,5 +42,5 @@ private:
     std::vector<Scope> data_;
 };
 
-Locations resolve(const Ast::Ast&, ScopeStack&);
+void resolve(const Ast::Ast&, ScopeStack&, Locations&);
 

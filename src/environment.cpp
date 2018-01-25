@@ -42,7 +42,12 @@ const ObjectReference& Environment::get(const Token& token) const {
 
 const ObjectReference& Environment::get_at(const Token& token, int depth) const
 {
-    return this->ancestor(depth)->get(token);
+    auto* relevant_environment = this->ancestor(depth);
+    auto x = relevant_environment->values_.find(token.lexeme);
+    if (x == relevant_environment->values_.end()) {
+        throw RuntimeError(token, "undefined variable '" + token.lexeme + "'");
+    }
+    return x->second;
 }
 
 const Environment* Environment::ancestor(int distance) const

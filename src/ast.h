@@ -19,6 +19,7 @@ struct If;
 struct Return;
 struct While;
 struct Declaration;
+struct Import;
 
 // Expressions forward declarations
 struct Assign;
@@ -42,6 +43,7 @@ struct Statement {
         virtual ReturnType operator()(const Return&) = 0;
         virtual ReturnType operator()(const While&) = 0;
         virtual ReturnType operator()(const Declaration&) = 0;
+        virtual ReturnType operator()(const Import&) = 0;
         virtual ~Visitor() noexcept {}
     };
 
@@ -157,6 +159,21 @@ struct Declaration : Statement {
     std::optional<std::unique_ptr<Expression>> initializer;
 };
 
+struct Import : Statement {
+    Import(Token token, std::string filepath, Ast&& ast,
+           std::optional<std::unique_ptr<Variable>>&& variable)
+        : token{std::move(token)}, filepath{std::move(filepath)}, ast{std::move(ast)},
+          variable{std::move(variable)}
+    {}
+
+    ACCEPT_STATEMENT_VISITORS
+
+    Token token;
+    std::string filepath;
+    Ast ast;
+    std::optional<std::unique_ptr<Variable>> variable;
+};
+
 // Expressions ------------------------------------------------------------------------------------
 
 #define ACCEPT_EXPRESSION_VISITORS \
@@ -172,12 +189,15 @@ struct Declaration : Statement {
 
 struct Variable : Expression {
     Variable(Token t)
-        : name{std::move(t)}
+        : name{std::move(t)}, id{Variable::count++}
     {}
 
     ACCEPT_EXPRESSION_VISITORS
 
     Token name;
+    std::uint64_t id;
+
+    static std::uint64_t count;
 };
 
 struct VariableTuple : Expression {

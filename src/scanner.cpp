@@ -20,7 +20,8 @@ std::optional<Token::Type> keyword_to_token_type(const std::string_view s)
         {"or", Token::Type::k_or},         {"return", Token::Type::k_return},
         {"super", Token::Type::k_super},   {"this", Token::Type::k_this},
         {"true", Token::Type::k_true},     {"var", Token::Type::k_var},
-        {"while", Token::Type::k_while},
+        {"while", Token::Type::k_while},   {"import", Token::Type::k_import},
+        {"as", Token::Type::k_as}
     };
 
     const auto it = map.find(s);

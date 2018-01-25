@@ -153,6 +153,16 @@ struct Printer : Ast::Expression::Visitor<std::string>, Ast::Statement::Visitor<
         s += ") ";
         return s;
     }
+    std::string operator()(const Ast::Import& i) override {
+        std::string s;
+        s += "(import ";
+        s += "\"" + i.filepath + "\" ";
+        if (i.variable) {
+            s += " as " + (*i.variable)->accept(*this);
+        }
+        s += ") ";
+        return s;
+    }
 };
 
 }  // Namespace

@@ -5,6 +5,8 @@
 #include "token.h"
 #include "object.h"
 #include "function_input.h"
+#include "scanner.h"
+#include "general.h"
 
 #include <cassert>
 #include <memory>
@@ -16,7 +18,7 @@ namespace {
 
 struct ParseData {
     ParseData(const std::vector<Token>& tokens,
-              std::function<void(const ParseError&)> report_error);
+              std::function<void(const Error&)> report_error);
     ParseData(const ParseData&) = delete;
     ParseData(ParseData&&) = delete;
 
@@ -33,20 +35,19 @@ struct ParseData {
 
     void synchronize() noexcept;
 
-    void report_error(const ParseError& e) const;
+    const std::function<void(const Error&)> report_error;
 private:
     bool increment_position(int i = 1) noexcept;
 
     const std::vector<Token>& tokens_;
-    const std::function<void(const ParseError&)> report_error_;
 
     std::size_t position_ = 0;
     std::size_t saved_position_ = 0;
 };
 
 ParseData::ParseData(const std::vector<Token>& tokens,
-                     std::function<void(const ParseError&)> report_error)
-    : tokens_{tokens}, report_error_{report_error}
+                     std::function<void(const Error&)> report_error)
+    : report_error{report_error}, tokens_{tokens}
 {
     assert(!tokens_.empty() && tokens_.back().type == Token::Type::eof &&
            "Parse data must end with eof token");
@@ -123,10 +124,6 @@ void ParseData::synchronize() noexcept
     }
 }
 
-void ParseData::report_error(const ParseError& e) const {
-    report_error_(e);
-}
-
 std::unique_ptr<Ast::VariableTuple> parse_variable_tuple(ParseData&);
 std::unique_ptr<Ast::Function> parse_function(ParseData&);
 std::unique_ptr<Ast::Expression> parse_primary(ParseData&);
@@ -147,6 +144,7 @@ std::unique_ptr<Ast::Statement> parse_if_statement(ParseData&);
 std::unique_ptr<Ast::Statement> parse_while_statement(ParseData&);
 std::unique_ptr<Ast::Statement> parse_for_statement(ParseData&);
 std::unique_ptr<Ast::Return> parse_return_statement(ParseData&);
+std::unique_ptr<Ast::Import> parse_import_statement(ParseData&);
 std::unique_ptr<Ast::Statement> parse_statement(ParseData&);
 std::unique_ptr<Ast::Statement> parse_var_declaration(ParseData&);
 std::unique_ptr<Ast::Statement> parse_declaration(ParseData&);
@@ -553,11 +551,33 @@ std::unique_ptr<Ast::Return> parse_return_statement(ParseData& data)
     return std::make_unique<Ast::Return>(keyword, std::move(expression));
 }
 
+std::unique_ptr<Ast::Import> parse_import_statement(ParseData& data)
+{
+    const Token& keyword = data.expect(Token::Type::k_import, "expected import keyword");
+
+    const std::string& filepath =
+        data.expect(Token::Type::string, "expect string after import statement")
+            .literal->get<std::string>();
+
+    std::optional<std::unique_ptr<Ast::Variable>> variable;
+    if (data.match_advance(Token::Type::k_as)) {
+        variable = std::make_unique<Ast::Variable>(
+            data.expect(Token::Type::identifier, "expect identifier after as"));
+    }
+
+    data.expect(Token::Type::semicolon, "expect ';' after import statement");
+
+    auto ast = parse(scan(read_file(filepath), data.report_error), data.report_error);
+
+    return std::make_unique<Ast::Import>(keyword, filepath, std::move(ast), std::move(variable));
+}
+
 std::unique_ptr<Ast::Statement> parse_statement(ParseData& data)
 {
     if (data.match_advance(Token::Type::k_for)) return parse_for_statement(data);
     if (data.match_advance(Token::Type::k_if)) return parse_if_statement(data);
     if (data.match(Token::Type::k_return)) return parse_return_statement(data);
+    if (data.match(Token::Type::k_import)) return parse_import_statement(data);
     if (data.match_advance(Token::Type::k_while)) return parse_while_statement(data);
 
     if (data.match(Token::Type::left_brace)) {
@@ -579,7 +599,7 @@ std::unique_ptr<Ast::Statement> parse_var_declaration(ParseData& data)
     auto token = data.expect(Token::Type::semicolon, "expect ';' after variable declaration");
 
     return std::make_unique<Ast::Declaration>(std::move(variable_tuple), std::move(token),
-                                         std::move(initializer));
+                                              std::move(initializer));
 }
 
 std::unique_ptr<Ast::Statement> parse_declaration(ParseData& data)
@@ -591,14 +611,14 @@ std::unique_ptr<Ast::Statement> parse_declaration(ParseData& data)
 
 }  // End of anonymous namespace
 
-Ast::Ast parse(const std::vector<Token>& tokens, std::function<void(const ParseError&)> report_error)
+Ast::Ast parse(const std::vector<Token>& tokens, std::function<void(const Error&)> report_error)
 {
-    ParseData data(tokens, report_error);
-    std::vector<std::unique_ptr<Ast::Statement>> statements;
+    Ast::Ast ast;
+    ParseData data{tokens, report_error};
 
     while (!data.is_at_end()) {
         try {
-            statements.push_back(parse_declaration(data));
+            ast.push_back(parse_declaration(data));
         }
         catch (const ParseError& e) {
             data.report_error(e);
@@ -606,6 +626,6 @@ Ast::Ast parse(const std::vector<Token>& tokens, std::function<void(const ParseE
         }
     }
 
-    return statements;
+    return ast;
 }
 

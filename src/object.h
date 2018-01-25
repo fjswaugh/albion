@@ -9,13 +9,16 @@
 #include <string_view>
 #include <iostream>
 #include <memory>
+#include <unordered_map>
 
 struct Environment;
 struct ObjectReference;
 
 using Tuple = std::vector<ObjectReference>;
+using Set = std::unordered_map<std::string, ObjectReference>;
+
 using Object =
-    std::variant<std::nullptr_t, bool, double, std::string, Tuple, Function, BuiltInFunction>;
+    std::variant<std::nullptr_t, bool, double, std::string, Tuple, Set, Function, BuiltInFunction>;
 
 struct ObjectReference {
     ObjectReference(const ObjectReference&) = default;
@@ -55,7 +58,7 @@ private:
 
 inline bool is_callable(const ObjectReference& o)
 {
-    return o.holds<Function>();
+    return o.holds<Function>() || o.holds<BuiltInFunction>();
 }
 
 std::string to_string(const ObjectReference&);

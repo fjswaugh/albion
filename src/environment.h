@@ -21,6 +21,9 @@ struct Environment {
 
     const ObjectReference& get(const Token& token) const;
     const ObjectReference& get_at(const Token& token, int depth) const;
+
+    const Set& set() const { return values_; }
+    Set& set() { return values_; }
 private:
     const Environment* ancestor(int distance) const;
     Environment* ancestor(int distance);
