@@ -30,7 +30,7 @@ Basic types are:
 
 ### Functions
 
-Functions are first class objects.
+Functions are first class objects. If they have no return statement, they just return nil.
 
 ```
 var f = fun x {
@@ -73,3 +73,11 @@ High to low precedence:
 * `or`
 * `,`
 * `->`
+
+### Importing other files
+
+```
+import "test.albion";  // Imports the file directly
+import "test.albion" as test;  // Imports the file into an object called test
+```
+
